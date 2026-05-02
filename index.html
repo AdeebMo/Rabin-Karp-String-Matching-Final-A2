@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rabin-Karp String Matching Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero card">
+            <div class="hero-copy">
+                <p class="eyebrow">Algorithms II Final Project • CLO-4</p>
+                <h1>Rabin-Karp String Matching Visualizer</h1>
+                <p class="hero-subtitle">
+                    An interactive teaching tool for rolling hash, window sliding, hash collisions,
+                    spurious hits, character verification, and correctness checking against naive search.
+                </p>
+            </div>
+            <div class="hero-meta">
+                <article class="metric-card">
+                    <span class="metric-label">Delivery</span>
+                    <strong>Standalone Offline App</strong>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Tech Stack</span>
+                    <strong>HTML • CSS • JS • SVG</strong>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Focus</span>
+                    <strong>Correctness + Teaching Clarity</strong>
+                </article>
+            </div>
+        </header>
+
+        <section class="concept-grid" aria-label="Key learning areas">
+            <article class="card concept-card">
+                <p class="card-kicker">Pattern Matching</p>
+                <h2>Find where a pattern occurs inside a longer text.</h2>
+                <p>See how every alignment creates a candidate window that must be tested carefully.</p>
+            </article>
+            <article class="card concept-card">
+                <p class="card-kicker">Rolling Hash</p>
+                <h2>Update the next window hash in constant time.</h2>
+                <p>Watch the outgoing character leave, the incoming character enter, and the invariant stay true.</p>
+            </article>
+            <article class="card concept-card">
+                <p class="card-kicker">Spurious Hits</p>
+                <h2>Equal hashes do not always mean equal strings.</h2>
+                <p>Explore collisions and why Rabin-Karp still verifies matching windows character by character.</p>
+            </article>
+            <article class="card concept-card">
+                <p class="card-kicker">Algorithm Comparison</p>
+                <h2>Contrast Naive Search, Rabin-Karp, and KMP.</h2>
+                <p>Compare ideas, complexity, and measured comparisons on the same input.</p>
+            </article>
+        </section>
+
+        <main class="workspace">
+            <aside class="card control-panel">
+                <div class="section-top">
+                    <div>
+                        <p class="card-kicker">Control Panel</p>
+                        <h2>Build and play the algorithm</h2>
+                    </div>
+                </div>
+
+                <div id="errorBanner" class="error-banner hidden" role="alert" aria-live="assertive"></div>
+
+                <form id="controlForm" novalidate>
+                    <div class="form-group">
+                        <label for="textInput">Main Text T</label>
+                        <textarea id="textInput" rows="4" spellcheck="false">ABABDABACDABABCABAB</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patternInput">Pattern P</label>
+                        <textarea id="patternInput" rows="2" spellcheck="false">ABABCABAB</textarea>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label for="baseInput">Base d</label>
+                            <input id="baseInput" type="number" min="1" step="1" value="256">
+                        </div>
+                        <div class="form-group">
+                            <label for="primeInput">Prime modulus q</label>
+                            <input id="primeInput" type="number" min="2" step="1" value="101">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Preset Examples</label>
+                        <div class="preset-grid" id="presetButtons">
+                            <button type="button" class="preset-button" data-preset="realMatch">Real Match</button>
+                            <button type="button" class="preset-button" data-preset="multipleMatches">Multiple Matches</button>
+                            <button type="button" class="preset-button" data-preset="noMatch">No Match</button>
+                            <button type="button" class="preset-button" data-preset="spuriousHit">Spurious Hit</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mode Selector</label>
+                        <div class="mode-stack" id="modeButtons" role="radiogroup" aria-label="Visualization mode">
+                            <button type="button" class="mode-button is-active" data-mode="rk" aria-pressed="true">Rabin-Karp Rolling Hash</button>
+                            <button type="button" class="mode-button" data-mode="naive" aria-pressed="false">Naive Search Comparison</button>
+                            <button type="button" class="mode-button" data-mode="kmp" aria-pressed="false">KMP Comparison View</button>
+                            <button type="button" class="mode-button" data-mode="spurious" aria-pressed="false">Spurious Hit Demonstration</button>
+                            <button type="button" class="mode-button" data-mode="formula" aria-pressed="false">Hash Formula View</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Playback Controls</label>
+                        <div class="playback-grid">
+                            <button type="button" class="button button-primary" id="buildButton">Build Steps</button>
+                            <button type="button" class="button" id="stepButton">Step</button>
+                            <button type="button" class="button" id="playButton">Play</button>
+                            <button type="button" class="button" id="pauseButton">Pause</button>
+                            <button type="button" class="button" id="resetButton">Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="range-row">
+                            <label for="speedSlider">Playback Speed</label>
+                            <span id="speedLabel" class="mono">1.00x</span>
+                        </div>
+                        <input id="speedSlider" type="range" min="0.25" max="4" step="0.25" value="1">
+                    </div>
+                </form>
+            </aside>
+
+            <section class="workspace-main">
+                <section class="card runtime-card">
+                    <div class="runtime-top">
+                        <div class="runtime-badges">
+                            <span id="statusBadge" class="badge badge-idle">Idle</span>
+                            <span id="stepCounter" class="badge">Step 0 / 0</span>
+                            <span id="activeModeLabel" class="badge">Rabin-Karp Rolling Hash</span>
+                        </div>
+                        <p class="runtime-note">
+                            Every panel is synchronized to the current step snapshot so playback, history, counters,
+                            and pseudocode always tell the same story.
+                        </p>
+                    </div>
+                    <div id="countersGrid" class="counter-grid" aria-live="polite"></div>
+                    <div id="verificationSummary" class="verification-summary" aria-live="polite"></div>
+                </section>
+
+                <section class="card visualizer-card">
+                    <div class="section-top">
+                        <div>
+                            <p class="card-kicker">Visualization Area</p>
+                            <h2>Trace the algorithm</h2>
+                        </div>
+                        <div id="viewTabs" class="tab-list" role="tablist" aria-label="Visualization tabs">
+                            <button type="button" class="tab-button is-active" data-view="text" role="tab" aria-selected="true">Text and Pattern</button>
+                            <button type="button" class="tab-button" data-view="hash" role="tab" aria-selected="false">Hash Computation</button>
+                            <button type="button" class="tab-button" data-view="rolling" role="tab" aria-selected="false">Rolling Hash</button>
+                            <button type="button" class="tab-button" data-view="verification" role="tab" aria-selected="false">Hash Match / Verification</button>
+                            <button type="button" class="tab-button" data-view="comparison" role="tab" aria-selected="false">Comparison</button>
+                            <button type="button" class="tab-button" data-view="summary" role="tab" aria-selected="false">Summary</button>
+                        </div>
+                    </div>
+
+                    <div class="visualization-stage">
+                        <section class="view-panel is-active" data-view-panel="text">
+                            <div class="legend-row">
+                                <span class="legend-chip legend-window">Current Window</span>
+                                <span class="legend-chip legend-hash">Hash Match</span>
+                                <span class="legend-chip legend-real">Real Match</span>
+                                <span class="legend-chip legend-spurious">Spurious Hit</span>
+                                <span class="legend-chip legend-mismatch">Mismatch</span>
+                            </div>
+                            <div class="svg-shell">
+                                <svg id="stringSvg" viewBox="0 0 960 220" role="img" aria-label="Text and pattern visualization"></svg>
+                            </div>
+                            <p id="windowCaption" class="helper-note"></p>
+                        </section>
+
+                        <section class="view-panel" data-view-panel="hash">
+                            <div class="formula-grid">
+                                <article class="mini-card">
+                                    <h3>Pattern Hash</h3>
+                                    <div id="patternFormula" class="code-block"></div>
+                                </article>
+                                <article class="mini-card">
+                                    <h3>Window Hash</h3>
+                                    <div id="windowFormula" class="code-block"></div>
+                                </article>
+                            </div>
+                            <article class="mini-card">
+                                <h3>Iterative Form</h3>
+                                <div id="iterativeFormula" class="code-block"></div>
+                            </article>
+                        </section>
+
+                        <section class="view-panel" data-view-panel="rolling">
+                            <article id="rollingInvariant" class="callout"></article>
+                            <div id="rollingStats" class="summary-grid"></div>
+                            <article class="mini-card">
+                                <h3>Rolling Hash Formula</h3>
+                                <div id="rollingFormula" class="code-block"></div>
+                            </article>
+                        </section>
+
+                        <section class="view-panel" data-view-panel="verification">
+                            <div class="formula-grid">
+                                <article class="mini-card">
+                                    <h3>Hash Comparison</h3>
+                                    <div id="hashMatchSummary"></div>
+                                </article>
+                                <article class="mini-card">
+                                    <h3>Verification Result</h3>
+                                    <div id="verificationResultCard"></div>
+                                </article>
+                            </div>
+                            <article class="mini-card">
+                                <h3>Character-by-Character Verification</h3>
+                                <div id="verificationPairs" class="verification-pairs"></div>
+                            </article>
+                        </section>
+
+                        <section class="view-panel" data-view-panel="comparison">
+                            <div class="table-scroll">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Algorithm</th>
+                                            <th>Main Idea</th>
+                                            <th>Best / Average / Worst</th>
+                                            <th>Measured Work</th>
+                                            <th>Matches</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="comparisonBody"></tbody>
+                                </table>
+                            </div>
+                            <article class="mini-card">
+                                <h3>KMP Prefix Table</h3>
+                                <div id="prefixTableCard"></div>
+                            </article>
+                        </section>
+
+                        <section class="view-panel" data-view-panel="summary">
+                            <div id="summaryGrid" class="summary-grid"></div>
+                            <article id="complexityNote" class="callout"></article>
+                        </section>
+                    </div>
+                </section>
+
+                <div class="workspace-secondary">
+                    <section class="card pseudocode-card">
+                        <div class="section-top">
+                            <div>
+                                <p class="card-kicker">Pseudocode</p>
+                                <h2>Algorithm lines</h2>
+                            </div>
+                            <p class="panel-note">Hover a line to see what it means in plain English.</p>
+                        </div>
+                        <ol id="pseudocodeList" class="pseudocode-list"></ol>
+                    </section>
+
+                    <section class="card explanation-card">
+                        <div class="section-top">
+                            <div>
+                                <p class="card-kicker">Step Explanation</p>
+                                <h2>What is happening now?</h2>
+                            </div>
+                            <span id="currentActionBadge" class="badge">Idle</span>
+                        </div>
+                        <div id="explanationBox" class="explanation-box" aria-live="polite"></div>
+                        <div class="aux-grid">
+                            <article class="mini-card">
+                                <h3>Verification Panel</h3>
+                                <div id="verificationPanel"></div>
+                            </article>
+                            <article class="mini-card">
+                                <h3>Hash Snapshot</h3>
+                                <div id="hashSnapshot"></div>
+                            </article>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="card history-card">
+                    <div class="section-top">
+                        <div>
+                            <p class="card-kicker">History Table</p>
+                            <h2>Latest 25 steps</h2>
+                        </div>
+                        <p class="panel-note">Click any row to jump directly to that moment.</p>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="data-table history-table">
+                            <thead>
+                                <tr>
+                                    <th>Step</th>
+                                    <th>Mode</th>
+                                    <th>Action</th>
+                                    <th>Window</th>
+                                    <th>Pattern Hash</th>
+                                    <th>Window Hash</th>
+                                    <th>Result</th>
+                                    <th>Pseudocode Line</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </main>
+
+        <section class="education-stack" aria-label="Educational content">
+            <article class="card education-card">
+                <p class="card-kicker">Overview</p>
+                <h2>What problem are we solving?</h2>
+                <p>
+                    The string matching problem asks us to find every starting position in a text <span class="mono">T</span>
+                    where a pattern <span class="mono">P</span> appears exactly. If the text length is <span class="mono">n</span>
+                    and the pattern length is <span class="mono">m</span>, there are <span class="mono">n - m + 1</span>
+                    possible windows to inspect.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Naive Search</p>
+                <h2>The baseline method compares characters directly.</h2>
+                <p>
+                    Naive matching tries every alignment and checks characters one by one. It is simple and correct,
+                    but repeated mismatches can make it expensive because the same text positions may be compared many times.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Rabin-Karp Main Idea</p>
+                <h2>Compare hashes before comparing characters.</h2>
+                <p>
+                    Rabin-Karp converts the pattern and each text window into numeric fingerprints. Most windows can be rejected
+                    quickly when their hash does not match the pattern hash.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Polynomial Hashing</p>
+                <h2>Characters become weighted by powers of the base.</h2>
+                <p>
+                    The app shows both the polynomial form and the iterative modular form:
+                    <span class="mono">hash(S) = (S[0] × d^(m-1) + ... + S[m-1]) mod q</span>.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Rolling Hash</p>
+                <h2>Slide the window without recomputing the whole hash.</h2>
+                <p>
+                    Rabin-Karp removes the outgoing character, shifts the remaining contribution by multiplying with
+                    <span class="mono">d</span>, then adds the incoming character. This makes each hash update <span class="mono">O(1)</span>.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Spurious Hits</p>
+                <h2>Hash collisions create false alarms.</h2>
+                <p>
+                    Two different strings can produce the same hash modulo <span class="mono">q</span>. That is why a hash match
+                    triggers character-by-character verification instead of immediate acceptance.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Complexity</p>
+                <h2>Expected efficiency with a careful warning.</h2>
+                <p>
+                    Preprocessing the pattern and first window takes <span class="mono">O(m)</span>. Sliding through all windows
+                    takes <span class="mono">O(n - m + 1)</span> hash checks. The expected running time is
+                    <span class="mono">O(n + m)</span>, but worst-case behavior can still reach <span class="mono">O(nm)</span>
+                    if many spurious hits force repeated verification.
+                </p>
+            </article>
+
+            <article class="card education-card">
+                <p class="card-kicker">Comparison with KMP</p>
+                <h2>Two linear-time ideas, two different mechanisms.</h2>
+                <p>
+                    KMP uses a prefix function to avoid rechecking characters after mismatches, giving deterministic
+                    <span class="mono">O(n + m)</span> time. Rabin-Karp is especially attractive when hashing can be reused for
+                    many patterns or many windows.
+                </p>
+            </article>
+
+            <article class="card education-card education-card-wide">
+                <p class="card-kicker">Worked Example</p>
+                <h2>Example: AABAACAADAABAABA with pattern AABA</h2>
+                <div id="workedExampleContent"></div>
+            </article>
+
+            <article class="card education-card education-card-wide">
+                <p class="card-kicker">Presentation Checklist</p>
+                <h2>Suggested talking points for the recorded presentation</h2>
+                <ul class="checklist">
+                    <li>First I enter the text and pattern.</li>
+                    <li>Then the tool computes the pattern hash.</li>
+                    <li>Next it computes the hash of the first text window.</li>
+                    <li>The window slides one character at a time.</li>
+                    <li>Instead of recomputing the hash, Rabin-Karp updates it using the rolling hash formula.</li>
+                    <li>When the hash values match, the algorithm verifies the actual characters.</li>
+                    <li>If the characters match, it is a real match.</li>
+                    <li>If the hashes match but the characters do not, it is a spurious hit.</li>
+                    <li>Finally, I compare the Rabin-Karp output with naive search to verify correctness.</li>
+                    <li>The key structural property is the rolling hash invariant.</li>
+                </ul>
+            </article>
+        </section>
+    </div>
+</body>
+</html>
