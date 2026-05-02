@@ -406,6 +406,12 @@ input[type="range"] {
     height: auto;
 }
 
+#rollingSvg {
+    width: 100%;
+    min-width: 720px;
+    height: auto;
+}
+
 .mini-card,
 .callout {
     padding: 1rem 1.1rem;
@@ -770,6 +776,83 @@ input[type="range"] {
     fill: none;
     stroke: rgba(196, 181, 253, 0.95);
     stroke-width: 2.5;
+}
+
+.char-rect.rolling-outgoing {
+    fill: rgba(239, 68, 68, 0.16);
+    stroke: rgba(248, 113, 113, 0.86);
+}
+
+.char-rect.rolling-incoming {
+    fill: rgba(34, 197, 94, 0.16);
+    stroke: rgba(74, 222, 128, 0.86);
+}
+
+.rolling-guide-line {
+    stroke: rgba(56, 189, 248, 0.34);
+    stroke-width: 2;
+    stroke-dasharray: 5 5;
+}
+
+.rolling-flow-line {
+    stroke: rgba(196, 181, 253, 0.62);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+}
+
+.rolling-flow-head {
+    fill: rgba(196, 181, 253, 0.82);
+}
+
+.rolling-previous-window {
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.54);
+    stroke-width: 1.75;
+    stroke-dasharray: 7 6;
+}
+
+.rolling-current-window {
+    fill: rgba(14, 165, 233, 0.1);
+    stroke: rgba(56, 189, 248, 0.95);
+    stroke-width: 2.5;
+}
+
+.rolling-hash-pill {
+    fill: rgba(14, 165, 233, 0.18);
+    stroke: rgba(56, 189, 248, 0.88);
+    stroke-width: 1.5;
+}
+
+.rolling-hash-pill-old {
+    fill: rgba(148, 163, 184, 0.14);
+    stroke: rgba(148, 163, 184, 0.46);
+}
+
+.rolling-hash-text {
+    fill: #e0f2fe;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--mono);
+    dominant-baseline: middle;
+    text-anchor: middle;
+}
+
+.rolling-hash-text-old {
+    fill: #cbd5e1;
+}
+
+.rolling-transition-label {
+    font-size: 12px;
+    font-family: var(--mono);
+    text-anchor: middle;
+}
+
+.rolling-transition-label.outgoing {
+    fill: #fca5a5;
+}
+
+.rolling-transition-label.incoming {
+    fill: #86efac;
 }
 
 .history-table button {

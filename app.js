@@ -1166,6 +1166,8 @@
         refs.patternFormula = document.getElementById("patternFormula");
         refs.windowFormula = document.getElementById("windowFormula");
         refs.iterativeFormula = document.getElementById("iterativeFormula");
+        refs.rollingSvg = document.getElementById("rollingSvg");
+        refs.rollingCaption = document.getElementById("rollingCaption");
         refs.rollingInvariant = document.getElementById("rollingInvariant");
         refs.rollingStats = document.getElementById("rollingStats");
         refs.rollingFormula = document.getElementById("rollingFormula");
@@ -1566,6 +1568,22 @@
         return `Current window: T[${step.windowStart}..${step.windowEnd}] = "${window}". Pattern P = "${state.runData.pattern}".`;
     }
 
+    function buildRollingCaption(step) {
+        if (!state.runData) {
+            return "Build the trace to watch the rolling hash travel with the sliding window.";
+        }
+
+        const windowStart = step && typeof step.windowStart === "number" ? step.windowStart : 0;
+        const windowEnd = step && typeof step.windowEnd === "number" ? step.windowEnd : state.runData.m - 1;
+        const displayedHash = step?.windowHash ?? state.runData.rk.initialWindowHash;
+
+        if (step?.rolling) {
+            return `The hash badge moves from T[${windowStart - 1}..${windowEnd - 1}] to T[${windowStart}..${windowEnd}], updating ${step.rolling.oldHash} to ${displayedHash} as ${formatChar(step.rolling.outgoingChar)} leaves and ${formatChar(step.rolling.incomingChar)} enters.`;
+        }
+
+        return `The badge stays attached to T[${windowStart}..${windowEnd}] and shows the current window hash tHash = ${displayedHash}.`;
+    }
+
     function renderSvg(step) {
         if (!state.runData) {
             refs.stringSvg.setAttribute("viewBox", "0 0 960 220");
@@ -1664,6 +1682,132 @@
         refs.windowCaption.textContent = buildWindowCaption(step);
     }
 
+    function renderRollingSvg(step) {
+        if (!state.runData) {
+            refs.rollingSvg.setAttribute("viewBox", "0 0 960 230");
+            refs.rollingSvg.innerHTML = `
+                <text x="48" y="116" fill="#94a3b8" font-size="18">Build the steps to watch the hash value move with the window.</text>
+            `;
+            refs.rollingCaption.textContent = buildRollingCaption(null);
+            return;
+        }
+
+        const { text, n, m } = state.runData;
+        const rolling = step?.rolling ?? null;
+        const boxSize = Math.max(34, Math.min(48, Math.floor(820 / Math.max(n, m, 1))));
+        const rectWidth = boxSize - 6;
+        const rectHeight = boxSize - 6;
+        const leftPad = 72;
+        const textY = 118;
+        const width = leftPad + boxSize * n + 32;
+        const height = 242;
+        const currentStart = step && typeof step.windowStart === "number" ? step.windowStart : 0;
+        const currentEnd = step && typeof step.windowEnd === "number" ? step.windowEnd : m - 1;
+        const previousStart = rolling ? Math.max(0, currentStart - 1) : currentStart;
+        const windowWidth = Math.max(rectWidth, m * boxSize - 2);
+        const currentWindowX = leftPad + currentStart * boxSize - 4;
+        const previousWindowX = leftPad + previousStart * boxSize - 4;
+        const currentCenterX = leftPad + currentStart * boxSize + ((m * boxSize) - 6) / 2;
+        const previousCenterX = leftPad + previousStart * boxSize + ((m * boxSize) - 6) / 2;
+        const currentHashLabel = rolling
+            ? `new tHash = ${step.windowHash}`
+            : `tHash = ${step?.windowHash ?? state.runData.rk.initialWindowHash}`;
+        const previousHashLabel = rolling ? `old tHash = ${rolling.oldHash}` : "";
+        const pillWidth = Math.max(
+            138,
+            currentHashLabel.length * 8 + 28,
+            previousHashLabel.length * 8 + 28
+        );
+        const pillHeight = 34;
+        const previousPillY = 8;
+        const currentPillY = rolling ? 48 : 38;
+        const currentPillX = currentCenterX - pillWidth / 2;
+        const previousPillX = previousCenterX - pillWidth / 2;
+        const flowY = textY - 18;
+        const outgoingIndex = rolling ? currentStart - 1 : null;
+        const incomingIndex = rolling ? currentEnd : null;
+
+        const textBoxes = text.split("").map((char, index) => {
+            const x = leftPad + index * boxSize;
+            const classes = ["char-rect"];
+            if (index >= currentStart && index <= currentEnd) {
+                classes.push("window");
+            }
+            if (index === outgoingIndex) {
+                classes.push("rolling-outgoing");
+            }
+            if (index === incomingIndex) {
+                classes.push("rolling-incoming");
+            }
+
+            return `
+                <text x="${x + boxSize / 2}" y="88" class="char-index">${index}</text>
+                <rect x="${x}" y="${textY}" rx="12" ry="12" width="${rectWidth}" height="${rectHeight}" class="${classes.join(" ")}"></rect>
+                <text x="${x + rectWidth / 2}" y="${textY + rectHeight / 2 + 1}" class="char-text">${escapeHtml(char)}</text>
+            `;
+        }).join("");
+
+        const previousWindow = rolling ? `
+            <rect x="${previousWindowX}" y="${textY - 7}" width="${windowWidth}" height="${rectHeight + 8}" rx="16" ry="16" class="rolling-previous-window"></rect>
+        ` : "";
+
+        const currentWindow = `
+            <rect x="${currentWindowX}" y="${textY - 7}" width="${windowWidth}" height="${rectHeight + 8}" rx="16" ry="16" class="rolling-current-window">
+                ${rolling ? `<animate attributeName="x" from="${previousWindowX}" to="${currentWindowX}" dur="0.45s" fill="freeze"></animate>` : ""}
+            </rect>
+        `;
+
+        const flowArrow = rolling ? `
+            <line x1="${previousCenterX}" y1="${flowY}" x2="${currentCenterX}" y2="${flowY}" class="rolling-flow-line"></line>
+            <polygon points="${currentCenterX},${flowY} ${currentCenterX - 12},${flowY - 6} ${currentCenterX - 12},${flowY + 6}" class="rolling-flow-head"></polygon>
+        ` : "";
+
+        const previousHashBadge = rolling ? `
+            <g transform="translate(${previousPillX} ${previousPillY})">
+                <rect width="${pillWidth}" height="${pillHeight}" rx="17" ry="17" class="rolling-hash-pill rolling-hash-pill-old"></rect>
+                <text x="${pillWidth / 2}" y="${pillHeight / 2 + 1}" class="rolling-hash-text rolling-hash-text-old">${escapeHtml(previousHashLabel)}</text>
+            </g>
+        ` : "";
+
+        const currentHashBadge = `
+            <g transform="translate(${currentPillX} ${currentPillY})">
+                ${rolling ? `<animateTransform attributeName="transform" type="translate" from="${previousPillX} ${previousPillY}" to="${currentPillX} ${currentPillY}" dur="0.45s" fill="freeze"></animateTransform>` : ""}
+                <rect width="${pillWidth}" height="${pillHeight}" rx="17" ry="17" class="rolling-hash-pill"></rect>
+                <text x="${pillWidth / 2}" y="${pillHeight / 2 + 1}" class="rolling-hash-text">${escapeHtml(currentHashLabel)}</text>
+            </g>
+        `;
+
+        const guideLines = `
+            <line x1="${currentCenterX}" y1="${currentPillY + pillHeight}" x2="${currentCenterX}" y2="${textY - 10}" class="rolling-guide-line"></line>
+            ${rolling ? `<line x1="${previousCenterX}" y1="${previousPillY + pillHeight}" x2="${previousCenterX}" y2="${textY - 10}" class="rolling-guide-line"></line>` : ""}
+        `;
+
+        const transitionLabels = rolling ? `
+            <text x="${leftPad + outgoingIndex * boxSize + rectWidth / 2}" y="${textY + rectHeight + 22}" class="rolling-transition-label outgoing">out</text>
+            <text x="${leftPad + incomingIndex * boxSize + rectWidth / 2}" y="${textY + rectHeight + 22}" class="rolling-transition-label incoming">in</text>
+        ` : "";
+
+        const summaryText = rolling
+            ? `Shift ${previousStart} to ${currentStart}: remove ${formatChar(rolling.outgoingChar)}, add ${formatChar(rolling.incomingChar)}.`
+            : `Current window T[${currentStart}..${currentEnd}] carries the hash value shown above it.`;
+
+        refs.rollingSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        refs.rollingSvg.innerHTML = `
+            <text x="10" y="${textY + rectHeight / 2 - 4}" class="char-label">Text T</text>
+            <text x="10" y="34" class="char-label">tHash</text>
+            ${flowArrow}
+            ${previousHashBadge}
+            ${currentHashBadge}
+            ${guideLines}
+            ${textBoxes}
+            ${previousWindow}
+            ${currentWindow}
+            ${transitionLabels}
+            <text x="${leftPad}" y="${height - 16}" fill="#c3d0e2" font-size="13">${escapeHtml(summaryText)}</text>
+        `;
+        refs.rollingCaption.textContent = buildRollingCaption(step);
+    }
+
     function buildBreakdownLines(breakdown, activeIndex) {
         const lines = [
             { text: breakdown.polynomialText, active: false }
@@ -1726,6 +1870,8 @@
     }
 
     function renderRollingView(step) {
+        renderRollingSvg(step);
+
         if (!state.runData) {
             refs.rollingInvariant.innerHTML = "The rolling hash invariant will appear here after building the trace.";
             refs.rollingStats.innerHTML = "";
